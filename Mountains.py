@@ -2,17 +2,39 @@
 import numpy as np
 from matplotlib import pyplot as plt
 ARR_SIZE = 10
+pixel=0
+
+
+class GridMap:
+    def __init__(self):
+        self.connections = {}
+    def add_point(self, x,y):
+        self.connections[(x,y)] = []
+    def add_connection(self, x1,y1,x2,y2):
+        self.connections[(x1,y1)].append((x2,y2))
+        self.connections[(x2,y2)].append((x1,y1))
+    def get_connections(self, x,y):
+        return self.connections[(x,y)]
+    #check if a point is already in the map
+    def check_point(self, x,y):
+        return (x,y) in self.connections
+
+# Example usage
+grid_map = GridMap()
+
+
 
 def main ():
     print("mountain home:")
     # numpy 2d array
-    mountain_arr = np.zeros((ARR_SIZE, ARR_SIZE))
-    setFirstPixel(mountain_arr)
+    setFirstPixel()
     while(True):
-        mountain_arr, location = placeNewPixel(mountain_arr)
-        print(mountain_arr)
+        location = placeNewPixel()
+        print(location)
+        
+        movePixel(location)
+        printMountain()
         return
-        mountain_arr = movePixel(mountain_arr, location)
         if(density(mountain_arr) >= 0.3):
             break
     ##printMountain(mountain_arr) # Finished mountain
@@ -21,89 +43,70 @@ def main ():
     
 
 
-def placeNewPixel(mountain_arr):
+def placeNewPixel():
     
     while (True):
         place = np.random.randint(0, 4)
         rand = np.random.randint(1,ARR_SIZE-1)
-        print(rand)
-             #y   , x
         up = (1, rand)    
-        down = (rand,ARR_SIZE-2) 
-        left = (1,rand)
-        right = (ARR_SIZE-1,rand)
+        down = (ARR_SIZE-2,rand) 
+        left = (rand,1)
+        right = (rand,ARR_SIZE-2)
 
         arr = [up,down,left,right]
         x,y = arr[place]
-        print(place,x,y)
-        if mountain_arr[x,y] == 0:
-            mountain_arr[x,y] = 1
-            return mountain_arr, (x,y)
+        if not grid_map.check_point(x,y):
+            grid_map.add_point(x,y)
+            return (x,y)
 
 
-def checkPixelEdges(mountain_arr, location):
-    # 000
+def checkPixelEdges(location):
+    #  0
     # 0x0
-    # 000
+    #  0
     #Check if border of array
-    printNeighbours(mountain_arr, location)
-    up = mountain_arr[location-ARR_SIZE]
-    down = mountain_arr[location+ARR_SIZE]
-    left = mountain_arr[location-1]
-    right = mountain_arr[location+1]
-    upleft = mountain_arr[location-ARR_SIZE-1]
-    upright = mountain_arr[location-ARR_SIZE+1]
-    downleft = mountain_arr[location+ARR_SIZE-1]
-    downright = mountain_arr[location+ARR_SIZE+1]
-    if (up == 1 or down == 1 or left == 1 or right == 1 or upleft == 1 or upright == 1 or downleft == 1 or downright == 1) :
+    (x,y) = location
+    #printNeighbours(location)
+    
+    if grid_map.check_point(x-1,y):
+        grid_map.add_connection(x,y,x-1,y)
+        return True
+    elif grid_map.check_point(x+1,y):
+        grid_map.add_connection(x,y,x+1,y)
+        return True
+    elif grid_map.check_point(x,y-1):
+        grid_map.add_connection(x,y,x,y-1)
+        return True
+    elif grid_map.check_point(x,y+1):
+        grid_map.add_connection(x,y,x,y+1)
         return True
     return False
 
   
 #Location = (x,y) tuple
-def movePixel(mountain_arr,location):
+def movePixel(location):
+    x,y = location
     while True:
         move = randMove()
-        if checkPixelEdges(mountain_arr, location): #Found a neighbour
-            #print("break out")
+        if checkPixelEdges(location): #Found a neighbour
+            
             break
-        
-        print("move: ", move)
         if move == 0:
-            # move up
-            if location - ARR_SIZE < ARR_SIZE: #  top of the array
-                continue
-            else:
-                mountain_arr[location] = 0
-                mountain_arr[location - ARR_SIZE] = 1
-                location = location - ARR_SIZE
+            if x>2:
+                x=x-1
         elif move == 1:
-            # move down
-            print(location, ARR_SIZE*(ARR_SIZE-1))
-            if location + ARR_SIZE >= ARR_SIZE*(ARR_SIZE-1): # Bottom
-                continue
-            else:
-                mountain_arr[location] = 0
-                mountain_arr[location + ARR_SIZE] = 1
-                location = location + ARR_SIZE
+            if x<ARR_SIZE-2:
+                x=x+1
         elif move == 2:
-            # move left
-            if location -1 % ARR_SIZE == 0: # Left
-                continue
-            else:
-                mountain_arr[location] = 0
-                mountain_arr[location - 1] = 1
-                location = location - 1
+            if y>2:
+                y=y-1
+        elif move == 3:
+            if y<ARR_SIZE-2:
+                y=y+1
         else:
-            # move right
-            if location % ARR_SIZE == ARR_SIZE - 1: # Right
-                continue
-            else:
-                mountain_arr[location] = 0
-                mountain_arr[location + 1] = 1
-                location = location+1
-    #printMountain(mountain_arr)
-    return mountain_arr
+            print("Error")
+        print(x,y)
+    return
 
 def randMove():
     # random move
@@ -123,55 +126,44 @@ def density(mountain_arr):
     return density
 
 
-def setFirstPixel(mountain_arr):
+def setFirstPixel():
     x = (ARR_SIZE//2)-1
     y = (ARR_SIZE//2)-1
     # center of the array
-    mountain_arr[x,y] = 1
-    return mountain_arr
+    grid_map.add_point(x,y)
     
 
-def printMountain(mountain_arr):
+def printMountain():
     for i in range(ARR_SIZE):
         for j in range(ARR_SIZE):
-            if mountain_arr[j+(i*ARR_SIZE)] == 0:
+            if not grid_map.check_point(i,j):
                 print(" ", end = " ")
             else:
                 print(u'\u25A1', end = " ")
         print("")
-        
-def toImage(mountain_arr):
-    # convert array to image
-    mountain_arr = np.reshape(mountain_arr, (ARR_SIZE, ARR_SIZE))
-    plt.imshow(mountain_arr, cmap='gray')
-    plt.show()
-    
-    
-def rescaleMountain(mountain_arr):
-    newArr = [(ARR_SIZE*ARR_SIZE*4)] # 4 times the size of the original array
-    newArr = np.zeros(newArr)
-    
-    #Nearest neighbor interpolation
-
-    
-    
-
-    
 
 
-    return mountain_arr
+def printNeighbours(location):
+    x,y = location
+    string = "Neighbours of: " + str(location)
+    if grid_map.check_point(x-1,y):
+        string += " neighbour up"
+    else:
+        string += " no neighbour up"
+    if grid_map.check_point(x+1,y):
+        string += " neighbour down"
+    else:
+        string += " no neighbour down"
+    if grid_map.check_point(x,y-1):
+        string += " neighbour left"
+    else:
+        string += " no neighbour left"
+    if grid_map.check_point(x,y+1):
+        string += " neighbour right"
+    else:
+        string += " no neighbour right"
+    print(string)
 
-
-def printNeighbours(mountain_arr, location):
-    up = mountain_arr[location-ARR_SIZE]
-    down = mountain_arr[location+ARR_SIZE]
-    left = mountain_arr[location-1]
-    right = mountain_arr[location+1]
-    upleft = mountain_arr[location-ARR_SIZE-1]
-    upright = mountain_arr[location-ARR_SIZE+1]
-    downleft = mountain_arr[location+ARR_SIZE-1]
-    downright = mountain_arr[location+ARR_SIZE+1]
-    print(upleft, up, upright,"\n", left,mountain_arr[location],right, "\n", downleft, down, downright,"\n")
   
 
 main()
