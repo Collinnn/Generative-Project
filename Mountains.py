@@ -3,7 +3,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 ARR_SIZE = 100
 FINAL_SIZE = ARR_SIZE*2^5 # 100*(2^5) = 3200  3200*3200 = 10240000 points
-pixel=0
+
+
+
 
 
 class GridMap:
@@ -26,25 +28,41 @@ class GridMap:
 
 grid_map = GridMap()
 final_map = np.zeros((FINAL_SIZE,FINAL_SIZE), dtype=int)
+edgefound = False
 
 
 def main ():
+    global edgefound
+    exponent = 1
+    size = 2^exponent
     print("mountain home:")
     # numpy 2d array
     setFirstPixel()
     while(True):
         location = placeNewPixel()
-        print(location)
+        #print(location)
         
         movePixel(location)
         
-        if(density() >= 0.3):
+        if(density() >= 0.3):#density reached  FYI: split in two to see which happens
+            print("Density reached")
             printMountain()
+            upscaledMountain(size)
+            exponent += 1
+            size = 2^exponent	
+        if(edgefound): #edge reached 
+            print("Edge found")
+            edgefound = False 
+            printMountain()
+            upscaledMountain(size)
+            exponent += 1
+            size = 2^exponent
+        
+        if(exponent==3):
             break
-    ##printMountain(mountain_arr) # Finished mountain
-    #toImage(mountain_arr)
-    
-    
+        
+            
+    toImage(0)
 
 
 def placeNewPixel():
@@ -86,11 +104,13 @@ def checkPixelEdges(location):
 #Location = (x,y) tuple
 def movePixel(location):
     x,y = location
-    
+    global edgefound
     while True:
         move = randMove()
         if checkPixelEdges((x,y)): #Found a neighbour
-            print("Found a neighbour")
+            if(x == 1 or x == ARR_SIZE-2 or y == 1 or y == ARR_SIZE-2): #Check if on the edge
+                print("Edge reached")
+                edgefound = True 
             break
         if move == 0:
             if x>2:
@@ -150,8 +170,31 @@ def printMountain():
             if not grid_map.check_point(i,j):
                 print(" ", end = " ")
             else:
-                print('||', end = " ")
+                print(u'\u25A1', end = " ")
         print("")
+
+def upscaledMountain(size):
+    upscaled_map = GridMap()
+    global grid_map
+    for elem in grid_map.connections.keys():
+        x,y = elem
+        arr = grid_map.get_connections(x,y)
+        upscaled_map.add_point(x*size,y*size)
+        for tup in arr:
+            xd,yd = (tup[0]*size,tup[1]*size)
+            #Adds the point in between the two points
+            if(xd == x*2):
+                if(yd>y*2):
+                    upscaled_map.add_point(xd,yd-1)
+                else:
+                    upscaled_map.add_point(xd,yd+1)
+            else:
+                if(xd>x*2):
+                    upscaled_map.add_point(xd-1,yd)
+                else:
+                    upscaled_map.add_point(xd+1,yd)
+            upscaled_map.add_point(xd,yd)
+    grid_map = upscaled_map
 
 
 def printNeighbours(location):
@@ -175,6 +218,17 @@ def printNeighbours(location):
         string += " no neighbour right"
     print(string)
 
-  
+def toImage(size):
+    arr = np.zeros((ARR_SIZE*2^size,ARR_SIZE*2^size), dtype=int)
+    for i in range(ARR_SIZE*2^size):
+        for j in range(ARR_SIZE*2^size):
+            if(grid_map.check_point(i,j)):
+                arr[i][j] = 1
+    
+    plt.imshow(arr, cmap='gray', interpolation='nearest')
+    plt.show()
+                
+
+
 
 main()
