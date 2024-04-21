@@ -1,7 +1,8 @@
 
 import numpy as np
 from matplotlib import pyplot as plt
-ARR_SIZE = 10
+ARR_SIZE = 100
+FINAL_SIZE = ARR_SIZE*2^5 # 100*(2^5) = 3200  3200*3200 = 10240000 points
 pixel=0
 
 
@@ -12,16 +13,19 @@ class GridMap:
         self.connections[(x,y)] = []
     def add_connection(self, x1,y1,x2,y2):
         self.connections[(x1,y1)].append((x2,y2))
-        self.connections[(x2,y2)].append((x1,y1))
+        self.connections[(x2,y2)].append((x1,y1)) 
     def get_connections(self, x,y):
         return self.connections[(x,y)]
     #check if a point is already in the map
     def check_point(self, x,y):
-        return (x,y) in self.connections
+        return self.connections.get((x,y)) is not None
+    def delete_point_before_connection(self, x,y): #Only used before connection is made
+        del self.connections[(x,y)] 
+    def point_to_string(self, x,y):
+        str(self.connections[(x,y)]) + ", " + str(x) + "," + str(y)
 
-# Example usage
 grid_map = GridMap()
-
+final_map = np.zeros((FINAL_SIZE,FINAL_SIZE), dtype=int)
 
 
 def main ():
@@ -33,9 +37,9 @@ def main ():
         print(location)
         
         movePixel(location)
-        printMountain()
-        return
-        if(density(mountain_arr) >= 0.3):
+        
+        if(density() >= 0.3):
+            printMountain()
             break
     ##printMountain(mountain_arr) # Finished mountain
     #toImage(mountain_arr)
@@ -65,63 +69,70 @@ def checkPixelEdges(location):
     # 0x0
     #  0
     #Check if border of array
-    (x,y) = location
-    #printNeighbours(location)
-    
+    x,y = location
     if grid_map.check_point(x-1,y):
         grid_map.add_connection(x,y,x-1,y)
-        return True
     elif grid_map.check_point(x+1,y):
         grid_map.add_connection(x,y,x+1,y)
-        return True
     elif grid_map.check_point(x,y-1):
         grid_map.add_connection(x,y,x,y-1)
-        return True
     elif grid_map.check_point(x,y+1):
         grid_map.add_connection(x,y,x,y+1)
-        return True
-    return False
+    else:
+        return False
+    return True
 
   
 #Location = (x,y) tuple
 def movePixel(location):
     x,y = location
+    
     while True:
         move = randMove()
-        if checkPixelEdges(location): #Found a neighbour
-            
+        if checkPixelEdges((x,y)): #Found a neighbour
+            print("Found a neighbour")
             break
         if move == 0:
             if x>2:
+                grid_map.delete_point_before_connection(x,y)
                 x=x-1
+                grid_map.add_point(x,y)
         elif move == 1:
             if x<ARR_SIZE-2:
+                grid_map.delete_point_before_connection(x,y)
                 x=x+1
+                grid_map.add_point(x,y)
         elif move == 2:
             if y>2:
+                grid_map.delete_point_before_connection(x,y)
                 y=y-1
+                grid_map.add_point(x,y)
         elif move == 3:
             if y<ARR_SIZE-2:
+                grid_map.delete_point_before_connection(x,y)
                 y=y+1
+                grid_map.add_point(x,y)
         else:
             print("Error")
-        print(x,y)
     return
 
 def randMove():
     # random move
-    return  np.random.randint(0, 3)
+    return  np.random.randint(0, 4)
    
     
 # density of the mountain
-def density(mountain_arr):
+def density():
     # density of the mountain
     amount = 0
-    for i in range(ARR_SIZE):
-        for j in range(ARR_SIZE):
-            amount += mountain_arr[j+(i*ARR_SIZE)]
+    for i in range(1,ARR_SIZE-1):
+        for j in range(1,ARR_SIZE-1):
+            if(grid_map.check_point(i,j)):
+                amount += 1
     
-    density = amount / float((ARR_SIZE * ARR_SIZE))
+    density = amount / float((ARR_SIZE-2) * (ARR_SIZE-2))
+    if(density >= 0.1):
+        printMountain()
     #print(density)
     return density
 
@@ -139,7 +150,7 @@ def printMountain():
             if not grid_map.check_point(i,j):
                 print(" ", end = " ")
             else:
-                print(u'\u25A1', end = " ")
+                print('||', end = " ")
         print("")
 
 
