@@ -1,9 +1,9 @@
 
 import numpy as np
 from matplotlib import pyplot as plt
-ARR_SIZE = 100
+ARR_SIZE = 10
 FINAL_SIZE = ARR_SIZE*2^5 # 100*(2^5) = 3200  3200*3200 = 10240000 points
-
+NUM=2
 
 
 
@@ -33,47 +33,49 @@ edgefound = False
 
 def main ():
     global edgefound
-    exponent = 1
-    size = 2^exponent
+    exponent = 0
+    size = NUM^exponent
     print("mountain home:")
     # numpy 2d array
     setFirstPixel()
     while(True):
-        location = placeNewPixel()
+        location = placeNewPixel(size)
         #print(location)
         
-        movePixel(location)
+        movePixel(location,size)
         
         if(density() >= 0.3):#density reached  FYI: split in two to see which happens
             print("Density reached")
-            printMountain()
-            upscaledMountain(size)
+            printMountain(size)
             exponent += 1
             size = 2^exponent	
+            upscaledMountain(size)
+
         if(edgefound): #edge reached 
             print("Edge found")
             edgefound = False 
-            printMountain()
-            upscaledMountain(size)
+            printMountain(size)
             exponent += 1
             size = 2^exponent
-        
-        if(exponent==3):
+            upscaledMountain(size)
+
+        if(exponent==1):
             break
         
             
-    toImage(0)
+    toImage(size)
 
 
-def placeNewPixel():
-    
+def placeNewPixel(size):
+    greatest=(ARR_SIZE*size)-2
+
     while (True):
         place = np.random.randint(0, 4)
-        rand = np.random.randint(1,ARR_SIZE-1)
+        rand = np.random.randint(1,greatest)
         up = (1, rand)    
-        down = (ARR_SIZE-2,rand) 
+        down = (greatest,rand) 
         left = (rand,1)
-        right = (rand,ARR_SIZE-2)
+        right = (rand,greatest)
 
         arr = [up,down,left,right]
         x,y = arr[place]
@@ -102,13 +104,14 @@ def checkPixelEdges(location):
 
   
 #Location = (x,y) tuple
-def movePixel(location):
+def movePixel(location,size):
     x,y = location
     global edgefound
+    greatest = (ARR_SIZE-2)*size
     while True:
         move = randMove()
         if checkPixelEdges((x,y)): #Found a neighbour
-            if(x == 1 or x == ARR_SIZE-2 or y == 1 or y == ARR_SIZE-2): #Check if on the edge
+            if(x == 1 or x == greatest or y == 1 or y == greatest): #Check if on the edge
                 print("Edge reached")
                 edgefound = True 
             break
@@ -118,7 +121,7 @@ def movePixel(location):
                 x=x-1
                 grid_map.add_point(x,y)
         elif move == 1:
-            if x<ARR_SIZE-2:
+            if x<greatest:
                 grid_map.delete_point_before_connection(x,y)
                 x=x+1
                 grid_map.add_point(x,y)
@@ -128,12 +131,12 @@ def movePixel(location):
                 y=y-1
                 grid_map.add_point(x,y)
         elif move == 3:
-            if y<ARR_SIZE-2:
+            if y<greatest:
                 grid_map.delete_point_before_connection(x,y)
                 y=y+1
                 grid_map.add_point(x,y)
         else:
-            print("Error")
+            print("Error") # WILL NEVER HAPPEN
     return
 
 def randMove():
@@ -151,8 +154,6 @@ def density():
                 amount += 1
     
     density = amount / float((ARR_SIZE-2) * (ARR_SIZE-2))
-    if(density >= 0.1):
-        printMountain()
     #print(density)
     return density
 
@@ -164,9 +165,9 @@ def setFirstPixel():
     grid_map.add_point(x,y)
     
 
-def printMountain():
-    for i in range(ARR_SIZE):
-        for j in range(ARR_SIZE):
+def printMountain(size):
+    for i in range(ARR_SIZE*size):
+        for j in range(ARR_SIZE*size):
             if not grid_map.check_point(i,j):
                 print(" ", end = " ")
             else:
@@ -219,11 +220,12 @@ def printNeighbours(location):
     print(string)
 
 def toImage(size):
-    arr = np.zeros((ARR_SIZE*2^size,ARR_SIZE*2^size), dtype=int)
-    for i in range(ARR_SIZE*2^size):
-        for j in range(ARR_SIZE*2^size):
+
+    arr = np.zeros((ARR_SIZE*size,ARR_SIZE*size), dtype=int)
+    for i in range(ARR_SIZE*size):
+        for j in range(ARR_SIZE*size):
             if(grid_map.check_point(i,j)):
-                arr[i][j] = 1
+                arr[i,j] = 255
     
     plt.imshow(arr, cmap='gray', interpolation='nearest')
     plt.show()
