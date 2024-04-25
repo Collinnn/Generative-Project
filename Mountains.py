@@ -25,8 +25,11 @@ class GridMap:
         del self.connections[(x,y)] 
     def point_to_string(self, x,y):
         str(self.connections[(x,y)]) + ", " + str(x) + "," + str(y)
+    def num_of_connections(self, x,y):
+        return len(self.connections[(x,y)])
 
 grid_map = GridMap()
+height_map = np.zeros((FINAL_SIZE,FINAL_SIZE), dtype=int)
 final_map = np.zeros((FINAL_SIZE,FINAL_SIZE), dtype=int)
 edgefound = False
 
@@ -60,6 +63,7 @@ def main ():
             upscaledMountain(size)
 
         if(exponent==1):
+            getHeightMap(size)
             break
         
             
@@ -183,18 +187,23 @@ def upscaledMountain(size):
         upscaled_map.add_point(x*size,y*size)
         for tup in arr:
             xd,yd = (tup[0]*size,tup[1]*size)
+            upscaled_map.add_point(xd,yd)
             #Adds the point in between the two points
             if(xd == x*2):
                 if(yd>y*2):
                     upscaled_map.add_point(xd,yd-1)
+                    upscaled_map.add_connection(xd,yd,xd,yd-1)
                 else:
                     upscaled_map.add_point(xd,yd+1)
+                    upscaled_map.add_connection(xd,yd,xd,yd+1)
             else:
                 if(xd>x*2):
                     upscaled_map.add_point(xd-1,yd)
+                    upscaled_map.add_connection(xd,yd,xd-1,yd)
                 else:
                     upscaled_map.add_point(xd+1,yd)
-            upscaled_map.add_point(xd,yd)
+                    upscaled_map.add_connection(xd,yd,xd+1,yd)
+            
     grid_map = upscaled_map
 
 
@@ -219,16 +228,48 @@ def printNeighbours(location):
         string += " no neighbour right"
     print(string)
 
+def getHeightMap(size):
+    frontier = {}
+    size_diff = transposeSize(size)
+    arr = np.zeros((ARR_SIZE*size,ARR_SIZE*size), dtype=int)
+    #Rotate inwards from the edge of the 2d array
+
+    for i in range(1,ARR_SIZE*size):
+        #Found point
+        for j in range(1,ARR_SIZE*size):
+            if(grid_map.check_point(i,j)):
+                print("Found point: ", i,j)
+                print("Connections: ", grid_map.get_connections(i,j))
+                if(grid_map.num_of_connections(i,j) == 1):
+                    frontier[(i,j)] = 1
+    
+        
+    #Expand frontier until all points are filled 
+    while frontier.keys() != {}:
+        if(arr[(i,j)]!=0):
+            arr[i,j] = frontier[(i,j)]
+            for (x,y) in grid_map.get_connections(i,j):
+                frontier[(x,y)] = frontier[(i,j)] + 1
+        frontier.pop((i,j))
+    print(arr)
+    
+        
+#Gives the size difference        
+def transposeSize(size):
+    local_size = ARR_SIZE*size               
+    return FINAL_SIZE//local_size
+
+
+#Currently wont work
 def toImage(size):
 
     arr = np.zeros((ARR_SIZE*size,ARR_SIZE*size), dtype=int)
+    #Finds all corners
     for i in range(ARR_SIZE*size):
         for j in range(ARR_SIZE*size):
             if(grid_map.check_point(i,j)):
                 arr[i,j] = 255
     
-    plt.imshow(arr, cmap='gray', interpolation='nearest')
-    plt.show()
                 
 
 
