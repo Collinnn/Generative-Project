@@ -28,6 +28,7 @@ class GridMap:
     def num_of_connections(self, x,y):
         return len(self.connections[(x,y)])
 
+
 grid_map = GridMap()
 height_map = np.zeros((FINAL_SIZE,FINAL_SIZE), dtype=int)
 final_map = np.zeros((FINAL_SIZE,FINAL_SIZE), dtype=int)
@@ -47,7 +48,7 @@ def main ():
         
         movePixel(location,size)
         
-        if(density() >= 0.3):#density reached  FYI: split in two to see which happens
+        if(density(size) >= 0.3):#density reached  FYI: split in two to see which happens
             print("Density reached")
             printMountain(size)
             exponent += 1
@@ -102,6 +103,7 @@ def checkPixelEdges(location):
         grid_map.add_connection(x,y,x,y-1)
     elif grid_map.check_point(x,y+1):
         grid_map.add_connection(x,y,x,y+1)
+
     else:
         return False
     return True
@@ -144,20 +146,19 @@ def movePixel(location,size):
     return
 
 def randMove():
-    # random move
     return  np.random.randint(0, 4)
    
     
 # density of the mountain
-def density():
+def density(size):
     # density of the mountain
     amount = 0
-    for i in range(1,ARR_SIZE-1):
-        for j in range(1,ARR_SIZE-1):
+    for i in range(1,ARR_SIZE-1*size):
+        for j in range(1,ARR_SIZE-1*size):
             if(grid_map.check_point(i,j)):
                 amount += 1
     
-    density = amount / float((ARR_SIZE-2) * (ARR_SIZE-2))
+    density = amount / float((ARR_SIZE-2)*size * (ARR_SIZE-2)*size)
     #print(density)
     return density
 
@@ -173,38 +174,54 @@ def printMountain(size):
     for i in range(ARR_SIZE*size):
         for j in range(ARR_SIZE*size):
             if not grid_map.check_point(i,j):
-                print(" ", end = " ")
+                print("0", end = " ")
             else:
-                print(u'\u25A1', end = " ")
+                print(grid_map.num_of_connections(i,j), end = " ")
         print("")
 
 def upscaledMountain(size):
-    upscaled_map = GridMap()
     global grid_map
-    for elem in grid_map.connections.keys():
-        x,y = elem
-        arr = grid_map.get_connections(x,y)
-        upscaled_map.add_point(x*size,y*size)
-        for tup in arr:
-            xd,yd = (tup[0]*size,tup[1]*size)
-            upscaled_map.add_point(xd,yd)
-            #Adds the point in between the two points
-            if(xd == x*2):
-                if(yd>y*2):
-                    upscaled_map.add_point(xd,yd-1)
-                    upscaled_map.add_connection(xd,yd,xd,yd-1)
-                else:
-                    upscaled_map.add_point(xd,yd+1)
-                    upscaled_map.add_connection(xd,yd,xd,yd+1)
+    upscaled_map = GridMap()
+    
+    for x, y in grid_map.connections.keys():
+        upscaled_map.add_point(x * size, y * size)  # Add the scaled point itself
+        
+        # Get the connections of the current point
+        connections = grid_map.get_connections(x, y)
+        x_sized = x * size
+        y_sized = y * size
+        
+        # Scale each connected point and add connections in the upscaled map
+        for cx, cy in connections:
+            # Scale the connected point
+            if(x-1 == cx): #left
+                upscaled_map.add_point(x_sized-1, y_sized)
+                upscaled_map.add_connection(x_sized, y_sized, x_sized-1, y_sized)
+
+                if(upscaled_map.check_point(x_sized-2, y_sized)): #Exists to check if extended also connnects to another point
+                    upscaled_map.add_connection(x_sized-1, y_sized, x_sized-2, y_sized)
+            elif(x+1 == cx): #right
+                upscaled_map.add_point(x_sized+1, y_sized)
+                upscaled_map.add_connection(x_sized, y_sized, x_sized+1, y_sized)
+
+                if(upscaled_map.check_point(x_sized+2, y_sized)):
+                    upscaled_map.add_connection(x_sized+1, y_sized, x_sized+2, y_sized)
+            elif(y-1 == cy): #up
+                upscaled_map.add_point(x_sized, y_sized-1)
+                upscaled_map.add_connection(x_sized, y_sized, x_sized, y_sized-1)
+
+                if(upscaled_map.check_point(x_sized, y_sized-2)):
+                    upscaled_map.add_connection(x_sized, y_sized-1, x_sized, y_sized-2)
+            elif(y+1 == cy): #down
+                upscaled_map.add_point(x_sized, y_sized+1)
+                upscaled_map.add_connection(x_sized, y_sized, x_sized, y_sized+1)
+
+                if(upscaled_map.check_point(x_sized, y_sized+2)):
+                    upscaled_map.add_connection(x_sized, y_sized+1, x_sized, y_sized+2)
             else:
-                if(xd>x*2):
-                    upscaled_map.add_point(xd-1,yd)
-                    upscaled_map.add_connection(xd,yd,xd-1,yd)
-                else:
-                    upscaled_map.add_point(xd+1,yd)
-                    upscaled_map.add_connection(xd,yd,xd+1,yd)
-            
+                print("Error")       
     grid_map = upscaled_map
+
 
 
 def printNeighbours(location):
@@ -232,24 +249,32 @@ def getHeightMap(size):
     frontier = {}
     size_diff = transposeSize(size)
     arr = np.zeros((ARR_SIZE*size,ARR_SIZE*size), dtype=int)
+
     #Rotate inwards from the edge of the 2d array
 
     for i in range(1,ARR_SIZE*size):
-        #Found point
         for j in range(1,ARR_SIZE*size):
+            #Found point
             if(grid_map.check_point(i,j)):
                 print("Found point: ", i,j)
                 print("Connections: ", grid_map.get_connections(i,j))
+
                 if(grid_map.num_of_connections(i,j) == 1):
                     frontier[(i,j)] = 1
-    
-        
+                    arr[(i,j)] = 1
+
+    print(arr, "\n")
     #Expand frontier until all points are filled 
-    while frontier.keys() != {}:
-        if(arr[(i,j)]!=0):
-            arr[i,j] = frontier[(i,j)]
+    while True:
+        if not frontier:
+            break
+        i,j = min(frontier.items(), key=lambda x: x[1])
+        print(arr[(i,j)])
+        if(arr[(i,j)]!=0): #check if point is already filled
             for (x,y) in grid_map.get_connections(i,j):
                 frontier[(x,y)] = frontier[(i,j)] + 1
+                arr[x,y] = frontier[(i,j)] + 1
+        
         frontier.pop((i,j))
     print(arr)
     
@@ -270,8 +295,5 @@ def toImage(size):
             if(grid_map.check_point(i,j)):
                 arr[i,j] = 255
     
-                
-
-
 
 main()
