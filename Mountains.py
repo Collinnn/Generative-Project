@@ -1,12 +1,11 @@
 
 import numpy as np
 from matplotlib import pyplot as plt
+import math
+import scipy
+import skimage
 ARR_SIZE = 10
-FINAL_SIZE = ARR_SIZE*2^5 # 100*(2^5) = 3200  3200*3200 = 10240000 points
-NUM=2
-
-
-
+FINAL_SIZE = ARR_SIZE*2**5 # 100*(2^5) = 3200  3200*3200 = 10240000 points
 
 class GridMap:
     def __init__(self):
@@ -38,37 +37,66 @@ edgefound = False
 def main ():
     global edgefound
     exponent = 0
-    size = NUM^exponent
+    size = int(math.pow(2,exponent)) 
     print("mountain home:")
     # numpy 2d array
     setFirstPixel()
     while(True):
         location = placeNewPixel(size)
-        #print(location)
+
         
         movePixel(location,size)
-        
+
         if(density(size) >= 0.3):#density reached  FYI: split in two to see which happens
             print("Density reached")
-            printMountain(size)
             exponent += 1
-            size = 2^exponent	
-            upscaledMountain(size)
 
+            size = int(math.pow(2,exponent)) 
+            upscaledMountain(size)
+  
         if(edgefound): #edge reached 
             print("Edge found")
-            edgefound = False 
-            printMountain(size)
+            edgefound = False
             exponent += 1
-            size = 2^exponent
+            print("size: ", size)
+            size = int(math.pow(2,exponent))
+            
             upscaledMountain(size)
-
-        if(exponent==1):
-            getHeightMap(size)
+            print(size)
+   
+        if(exponent==2):
+            print("Heightmap")
+            print(size)
+            arr = getHeightMap(size)
+            upscaleandAddToFinal(arr,exponent)
             break
         
             
     toImage(size)
+
+def upscaleandAddToFinal(arr,exponent):
+    customSize = 2^exponent
+
+    while(True):
+        if(customSize*ARR_SIZE >= FINAL_SIZE):
+            break
+        
+        exponent += 1
+        customSize = 2^exponent
+        upscaleblur(arr,customSize)
+        
+
+        
+        
+def upscaleblur(arr,size):
+    #get size of arr
+    #TODO: REDO INTERPOLATION
+    print(size)
+    print(len(arr))
+    new_arr = skimage.transform.resize(arr,(ARR_SIZE*size,ARR_SIZE*size), order=1)
+    print(arr)
+    print(new_arr)
+            
 
 
 def placeNewPixel(size):
@@ -118,6 +146,7 @@ def movePixel(location,size):
         move = randMove()
         if checkPixelEdges((x,y)): #Found a neighbour
             if(x == 1 or x == greatest or y == 1 or y == greatest): #Check if on the edge
+
                 print("Edge reached")
                 edgefound = True 
             break
@@ -181,8 +210,9 @@ def printMountain(size):
 
 def upscaledMountain(size):
     global grid_map
+
     upscaled_map = GridMap()
-    
+
     for x, y in grid_map.connections.keys():
         upscaled_map.add_point(x * size, y * size)  # Add the scaled point itself
         
@@ -221,7 +251,47 @@ def upscaledMountain(size):
             else:
                 print("Error")       
     grid_map = upscaled_map
+    
 
+
+def getHeightMap(size):
+    frontier = {}
+    arr = np.zeros((ARR_SIZE*size,ARR_SIZE*size), dtype=int)
+    for i in range(1,ARR_SIZE*size):
+        for j in range(1,ARR_SIZE*size):
+            if(grid_map.check_point(i,j)): #Check if point is in the grid
+                if(grid_map.num_of_connections(i,j) == 1):
+                    frontier[(i,j)] = 1
+                    arr[(i,j)] = 1
+
+    #Expand frontier until all points are filled 
+    while True:
+        if not frontier:
+            break
+        item,_= min(frontier.items(), key=lambda x: x[1])
+        i,j = item
+
+        for (x,y) in grid_map.get_connections(i,j):
+            if(x >= 0 and x <= ARR_SIZE*size-1 and y >= 0 and y <= ARR_SIZE*size-1):
+                if(arr[(x,y)] == 0):
+                    frontier[(x,y)] = frontier[(i,j)] + 1
+                    arr[(x,y)] = frontier[(i,j)] + 1
+
+        frontier.pop((i,j))
+        
+    return arr
+    
+
+
+#Currently wont work
+def toImage(size):
+
+    arr = np.zeros((ARR_SIZE*size,ARR_SIZE*size), dtype=int)
+    #Finds all corners
+    for i in range(ARR_SIZE*size):
+        for j in range(ARR_SIZE*size):
+            if(grid_map.check_point(i,j)):
+                arr[i,j] = 255
 
 
 def printNeighbours(location):
@@ -245,55 +315,5 @@ def printNeighbours(location):
         string += " no neighbour right"
     print(string)
 
-def getHeightMap(size):
-    frontier = {}
-    size_diff = transposeSize(size)
-    arr = np.zeros((ARR_SIZE*size,ARR_SIZE*size), dtype=int)
-
-    #Rotate inwards from the edge of the 2d array
-
-    for i in range(1,ARR_SIZE*size):
-        for j in range(1,ARR_SIZE*size):
-            #Found point
-            if(grid_map.check_point(i,j)):
-                print("Found point: ", i,j)
-                print("Connections: ", grid_map.get_connections(i,j))
-
-                if(grid_map.num_of_connections(i,j) == 1):
-                    frontier[(i,j)] = 1
-                    arr[(i,j)] = 1
-
-    print(arr, "\n")
-    #Expand frontier until all points are filled 
-    while True:
-        if not frontier:
-            break
-        i,j = min(frontier.items(), key=lambda x: x[1])
-        print(arr[(i,j)])
-        if(arr[(i,j)]!=0): #check if point is already filled
-            for (x,y) in grid_map.get_connections(i,j):
-                frontier[(x,y)] = frontier[(i,j)] + 1
-                arr[x,y] = frontier[(i,j)] + 1
-        
-        frontier.pop((i,j))
-    print(arr)
-    
-        
-#Gives the size difference        
-def transposeSize(size):
-    local_size = ARR_SIZE*size               
-    return FINAL_SIZE//local_size
-
-
-#Currently wont work
-def toImage(size):
-
-    arr = np.zeros((ARR_SIZE*size,ARR_SIZE*size), dtype=int)
-    #Finds all corners
-    for i in range(ARR_SIZE*size):
-        for j in range(ARR_SIZE*size):
-            if(grid_map.check_point(i,j)):
-                arr[i,j] = 255
-    
 
 main()
