@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 import math
 import scipy
 import skimage
-ARR_SIZE = 10
+ARR_SIZE = 7
 FINAL_SIZE = ARR_SIZE*2**5 # 100*(2^5) = 3200  3200*3200 = 10240000 points
 
 class GridMap:
@@ -30,7 +30,7 @@ class GridMap:
 
 grid_map = GridMap()
 height_map = np.zeros((FINAL_SIZE,FINAL_SIZE), dtype=int)
-final_map = np.zeros((FINAL_SIZE,FINAL_SIZE), dtype=int)
+final_map = np.zeros((2560,2560), dtype=float)
 edgefound = False
 
 
@@ -51,7 +51,7 @@ def main ():
             print("Density reached")
             exponent += 1
 
-            size = int(math.pow(2,exponent)) 
+            size = int(math.pow(2,exponent))
             upscaledMountain(size)
   
         if(edgefound): #edge reached 
@@ -59,12 +59,16 @@ def main ():
             edgefound = False
             exponent += 1
             print("size: ", size)
+            printMountain(size)
             size = int(math.pow(2,exponent))
             
+            print("\n")
             upscaledMountain(size)
+            printMountain(size)
             print(size)
-   
+    
         if(exponent==2):
+            return
             print("Heightmap")
             print(size)
             arr = getHeightMap(size)
@@ -72,30 +76,39 @@ def main ():
             break
         
             
-    toImage(size)
+    toImage()
 
 def upscaleandAddToFinal(arr,exponent):
-    customSize = 2^exponent
+    global final_map
+    
+    expo = exponent
+    expo += 1
+    arr = upscaleblur(arr,expo)
+    print(arr.shape)
+    print(final_map.shape)
+    final_map += arr
+    
+        
 
-    while(True):
-        if(customSize*ARR_SIZE >= FINAL_SIZE):
-            break
         
-        exponent += 1
-        customSize = 2^exponent
-        upscaleblur(arr,customSize)
-        
-
-        
-        
-def upscaleblur(arr,size):
+def upscaleblur(arr,expo):
+    csize = 2**expo
     #get size of arr
-    #TODO: REDO INTERPOLATION
-    print(size)
-    print(len(arr))
-    new_arr = skimage.transform.resize(arr,(ARR_SIZE*size,ARR_SIZE*size), order=1)
-    print(arr)
-    print(new_arr)
+    while True:
+        if csize >= FINAL_SIZE:
+            break
+        #TODO: REDO INTERPOLATION
+        new_arr = skimage.transform.resize(arr,(ARR_SIZE*csize,ARR_SIZE*csize), order=1)
+
+        #Radial blur
+        #new_arr = scipy.ndimage.gaussian_filter(new_arr, sigma=1)
+        expo += 1
+        csize = 2**expo
+        arr = new_arr
+    return arr
+
+    
+
             
 
 
@@ -193,8 +206,8 @@ def density(size):
 
 
 def setFirstPixel():
-    x = (ARR_SIZE//2)-1
-    y = (ARR_SIZE//2)-1
+    x = (ARR_SIZE//2)
+    y = (ARR_SIZE//2)
     # center of the array
     grid_map.add_point(x,y)
     
@@ -205,21 +218,23 @@ def printMountain(size):
             if not grid_map.check_point(i,j):
                 print("0", end = " ")
             else:
-                print(grid_map.num_of_connections(i,j), end = " ")
+                print("x", end = " ")
         print("")
+
+def stepDown(size):
+    return int(size*(2**(-1)))
 
 def upscaledMountain(size):
     global grid_map
 
     upscaled_map = GridMap()
-
     for x, y in grid_map.connections.keys():
-        upscaled_map.add_point(x * size, y * size)  # Add the scaled point itself
+        upscaled_map.add_point(x*2, y*2)  # Add the scaled point itself
         
         # Get the connections of the current point
         connections = grid_map.get_connections(x, y)
-        x_sized = x * size
-        y_sized = y * size
+        x_sized = x*2
+        y_sized = y*2
         
         # Scale each connected point and add connections in the upscaled map
         for cx, cy in connections:
@@ -249,7 +264,7 @@ def upscaledMountain(size):
                 if(upscaled_map.check_point(x_sized, y_sized+2)):
                     upscaled_map.add_connection(x_sized, y_sized+1, x_sized, y_sized+2)
             else:
-                print("Error")       
+                print("Error")
     grid_map = upscaled_map
     
 
@@ -284,14 +299,12 @@ def getHeightMap(size):
 
 
 #Currently wont work
-def toImage(size):
+def toImage():
 
-    arr = np.zeros((ARR_SIZE*size,ARR_SIZE*size), dtype=int)
-    #Finds all corners
-    for i in range(ARR_SIZE*size):
-        for j in range(ARR_SIZE*size):
-            if(grid_map.check_point(i,j)):
-                arr[i,j] = 255
+    global final_map
+    #plot array
+    plt.imshow(final_map, cmap='gray')
+    plt.show()
 
 
 def printNeighbours(location):
