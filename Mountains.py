@@ -5,17 +5,15 @@ import math
 import scipy
 import skimage
 import copy
+import os
 ARR_SIZE = 20
-FINAL_SIZE = ARR_SIZE*2**4 # 100*2^5 = 3200
+FINAL_SIZE = ARR_SIZE*2**5 # 100*2^5 = 3200
 
 class GridMap:
     def __init__(self):
         self.connections = {}
     def add_point(self, x,y):
         self.connections[(x,y)] = []
-    def add_connection(self, x1,y1,x2,y2):
-        self.connections[(x1,y1)].append((x2,y2))
-        self.connections[(x2,y2)].append((x1,y1)) 
     def get_connections(self, x,y):
         return self.connections[(x,y)]
     #check if a point is already in the map
@@ -30,11 +28,13 @@ class GridMap:
     def move_point(self, x,y,x2,y2):
         self.connections[(x2,y2)] = self.connections[(x,y)]
         del self.connections[(x,y)]
-
+    def add_connection(self, x1,y1,x2,y2):
+        if (x2,y2) not in self.connections[(x1,y1)] and self.check_point(x2,y2) and (x1,y1) not in self.connections[(x2,y2)]:
+            self.connections[(x1,y1)].append((x2,y2))
+            self.connections[(x2,y2)].append((x1,y1))
 
 grid_map = GridMap()
-height_map = np.zeros((FINAL_SIZE,FINAL_SIZE), dtype=int)
-final_map = np.zeros((2560,2560), dtype=float)
+final_map = np.zeros((10240,10240), dtype=float)
 edgefound = False
 pointdict = {}
 
@@ -54,32 +54,36 @@ def main ():
         if(density(size) >= 0.3):#density reached  FYI: split in two to see which happens
             print("Density reached")
             upscaleandAddToFinal(getHeightMap(size),exponent)
+            if(exponent == 1):
+                printMountain(size)
             exponent += 1
             size = int(math.pow(2,exponent))
 
 
-            jitterMap(size)
+            #jitterMap(size)
             upscaledMountain(size)
   
         if(edgefound): #edge reached 
             print("Edge found")
+            if(exponent == 1):
+                printMountain(size)
             upscaleandAddToFinal(getHeightMap(size),exponent)
             edgefound = False
             exponent += 1
 
             size = int(math.pow(2,exponent))
 
-            jitterMap(size)
+            #jitterMap(size)
             upscaledMountain(size)
 
 
-        if(exponent==5):
+        if(exponent==6):
             print("Heightmap")
             print(size)
             arr = getHeightMap(size)
             upscaleandAddToFinal(arr,exponent)
             break
-        
+ 
             
     toImage()
 
@@ -108,16 +112,16 @@ def arrJitter(arr):
                     newarr[i+1,j] = value*rand
             else:
                 if(i-1<0):
-                    newarr[i,j] = value-value*math.fabs(rand)
-                    newarr[i-1,j] = value*math.fabs(rand)
+                    newarr[i,j] = value-value*abs(rand)
+                    newarr[i-1,j] = value*abs(rand)
             if(rand2 > 0.0):
                 if(j+1<arr_shape[1]):
                     newarr[i,j] = value-value*rand2
                     newarr[i,j+1] = value*rand2
             else:
                 if(j-1<0):
-                    newarr[i,j] = value-value*math.fabs(rand2)
-                    newarr[i,j-1] = value*math.fabs(rand2)
+                    newarr[i,j] = value-value*abs(rand2)
+                    newarr[i,j-1] = value*abs(rand2)
    
     return newarr
                         
@@ -137,7 +141,7 @@ def upscaleblur(arr,expo):
         expo += 1
         
         arr = new_arr
-        if expo >= 9: #Temp, but not going to be
+        if expo >= 11: #Temp, but not going to be
             break
 
     return arr
@@ -149,7 +153,7 @@ def upscaleblur(arr,expo):
 
 def placeNewPixel(size):
     greatest=(ARR_SIZE*size)-2
-
+    """"""""""
     while (True):
         place = np.random.randint(0, 4) #0 = up, 1 = down, 2 = left, 3 = right
         small = np.random.randint(1,10*size) # 1 to 4*size-1
@@ -164,7 +168,14 @@ def placeNewPixel(size):
         if not grid_map.check_point(x,y) and pointdict.get((x,y)) is None:
             grid_map.add_point(x,y)
             return (x,y)
-
+    """""""""""
+    while(True):
+        greatest = (ARR_SIZE*size)-2
+        x = np.random.randint(1,greatest)
+        y = np.random.randint(1,greatest)
+        if not grid_map.check_point(x,y) and pointdict.get((x,y)) is None:
+            grid_map.add_point(x,y)
+            return (x,y)
 
 def checkPixelEdges(location):
     #  0
@@ -253,7 +264,7 @@ def printMountain(size):
             if not grid_map.check_point(i,j):
                 print("0", end = " ")
             else:
-                print("x", end = " ")
+                print(grid_map.num_of_connections(i,j), end = " ")
         print("")
 
 def stepDown(size):
@@ -300,58 +311,53 @@ def upscaledMountain(size):
             if(x-1 == cx): #left
                 upscaled_map.add_point(x_sized-1, y_sized)
                 upscaled_map.add_connection(x_sized, y_sized, x_sized-1, y_sized)
-
-                if(upscaled_map.check_point(x_sized-2, y_sized)): #Exists to check if extended also connnects to another point
-                    upscaled_map.add_connection(x_sized-1, y_sized, x_sized-2, y_sized)
+                upscaled_map.add_connection(x_sized-1, y_sized, x_sized-2, y_sized)
             elif(x+1 == cx): #right
                 upscaled_map.add_point(x_sized+1, y_sized)
                 upscaled_map.add_connection(x_sized, y_sized, x_sized+1, y_sized)
-
-                if(upscaled_map.check_point(x_sized+2, y_sized)):
-                    upscaled_map.add_connection(x_sized+1, y_sized, x_sized+2, y_sized)
+                upscaled_map.add_connection(x_sized+1, y_sized, x_sized+2, y_sized)
             elif(y-1 == cy): #up
                 upscaled_map.add_point(x_sized, y_sized-1)
                 upscaled_map.add_connection(x_sized, y_sized, x_sized, y_sized-1)
-
-                if(upscaled_map.check_point(x_sized, y_sized-2)):
-                    upscaled_map.add_connection(x_sized, y_sized-1, x_sized, y_sized-2)
+                upscaled_map.add_connection(x_sized, y_sized-1, x_sized, y_sized-2)
             elif(y+1 == cy): #down
                 upscaled_map.add_point(x_sized, y_sized+1)
                 upscaled_map.add_connection(x_sized, y_sized, x_sized, y_sized+1)
-
-                if(upscaled_map.check_point(x_sized, y_sized+2)):
-                    upscaled_map.add_connection(x_sized, y_sized+1, x_sized, y_sized+2)
+                upscaled_map.add_connection(x_sized, y_sized+1, x_sized, y_sized+2)
             else:
                 print("Error in upscaling")
     grid_map = upscaled_map
     
 
 
-def getHeightMap(size):
+def getHeightMap(size, grid_map, ARR_SIZE):
     frontier = {}
-    arr = np.zeros((ARR_SIZE*size,ARR_SIZE*size), dtype=int)
-    for i in range(1,ARR_SIZE*size):
-        for j in range(1,ARR_SIZE*size):
-            if(grid_map.check_point(i,j)): #Check if point is in the grid
-                if(grid_map.num_of_connections(i,j) == 1):
-                    frontier[(i,j)] = 1
-                    arr[(i,j)] = 1
+    arr = np.zeros((ARR_SIZE*size, ARR_SIZE*size), dtype=int)
+    
+    for i in range(1, ARR_SIZE*size):
+        for j in range(1, ARR_SIZE*size):
+            if grid_map.check_point(i, j):  # Check if point is in the grid
+                if grid_map.num_of_connections(i, j) == 1:
+                    frontier[(i, j)] = 1
+                    arr[(i, j)] = 1
 
-    #Expand frontier until all points are filled 
-    while True:
-        if not frontier:
-            break
-        item,_= min(frontier.items(), key=lambda x: x[1])
-        i,j = item
+    # Expand frontier until all points are filled 
+    #TODO: REDO TO ALLOW FOR EDGE CONNECTIONS TO CHECK HEIGEST
+    max_val = 0
+    print(frontier.items())
+    while frontier:
+        item, _ = min(frontier.items(), key=lambda x: x[1])
+        i, j = item
 
-        for (x,y) in grid_map.get_connections(i,j):
-            if(x >= 0 and x <= ARR_SIZE*size-1 and y >= 0 and y <= ARR_SIZE*size-1):
-                if(arr[(x,y)] == 0):
-                    frontier[(x,y)] = frontier[(i,j)] + 1
-                    arr[(x,y)] = frontier[(i,j)] + 1
+        for x, y in grid_map.get_connections(i, j):
+            if 0 <= x < ARR_SIZE*size and 0 <= y < ARR_SIZE*size:
+                if arr[(x, y)] == 0:
+                    frontier[(x, y)] = frontier[(i, j)] + 1
+                    arr[(x, y)] = frontier[(i, j)] + 1
+                    max_val = max(max_val, arr[(x, y)])
 
-        frontier.pop((i,j))
-        
+        frontier.pop((i, j))
+    print("MAX:", max_val)
     return arr
     
 
@@ -362,6 +368,12 @@ def toImage():
     global final_map
     #plot array
     plt.imshow(final_map, cmap='gray')
+    try:
+        os.remove("mountain.png")
+    except FileNotFoundError:
+        print("No file to remove")
+        
+    plt.savefig("mountain.png")
     plt.show()
 
 
