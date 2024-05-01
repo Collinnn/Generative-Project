@@ -102,9 +102,10 @@ def arrJitter(arr):
     
     for i in range(arr_shape[0]):
         for j in range(arr_shape[1]):
-            rand = np.random.rand(1)*2-1#-1 to 1
-            rand2 = np.random.rand(1)*2-1 
-            value=arr[i,j]
+            #The squeeze stops the random float from being a 1d array
+            rand = np.squeeze(np.random.rand(1)*2-1) #-1 to 1
+            rand2 = np.squeeze(np.random.rand(1)*2-1)#-1 to 1
+            value=arr[i,j] 
             #split over 9 pixels
             if(rand > 0.0):
                 if(i+1<arr_shape[0]):
@@ -148,12 +149,8 @@ def upscaleblur(arr,expo):
 
     
 
-            
-
-
-def placeNewPixel(size):
-    greatest=(ARR_SIZE*size)-2
-    """"""""""
+def placeNewPixelBorders(size):         
+    #OLD way, only edges
     while (True):
         place = np.random.randint(0, 4) #0 = up, 1 = down, 2 = left, 3 = right
         small = np.random.randint(1,10*size) # 1 to 4*size-1
@@ -168,7 +165,9 @@ def placeNewPixel(size):
         if not grid_map.check_point(x,y) and pointdict.get((x,y)) is None:
             grid_map.add_point(x,y)
             return (x,y)
-    """""""""""
+
+def placeNewPixel(size):
+    greatest=(ARR_SIZE*size)-2
     while(True):
         greatest = (ARR_SIZE*size)-2
         x = np.random.randint(1,greatest)
@@ -247,7 +246,6 @@ def density(size):
                 amount += 1
     
     density = amount / float((ARR_SIZE-2)*size * (ARR_SIZE-2)*size)
-    #print(density)
     return density
 
 
@@ -330,8 +328,9 @@ def upscaledMountain(size):
     
 
 
-def getHeightMap(size, grid_map, ARR_SIZE):
+def getHeightMap(size):
     frontier = {}
+    directions = {}
     arr = np.zeros((ARR_SIZE*size, ARR_SIZE*size), dtype=int)
     
     for i in range(1, ARR_SIZE*size):
@@ -351,15 +350,43 @@ def getHeightMap(size, grid_map, ARR_SIZE):
 
         for x, y in grid_map.get_connections(i, j):
             if 0 <= x < ARR_SIZE*size and 0 <= y < ARR_SIZE*size:
-                if arr[(x, y)] == 0:
+                if arr[(x,y)] == 1:
+                    continue
+                if grid_map.num_of_connections(x, y) == 2:
+                    directions[(x,y)] = (i,j)
+                if  arr[(x, y)] < frontier[(i, j)] + 1 and directions.get((x,y)) != (i,j):
+                    directions[(x,y)] = (i,j)
                     frontier[(x, y)] = frontier[(i, j)] + 1
                     arr[(x, y)] = frontier[(i, j)] + 1
                     max_val = max(max_val, arr[(x, y)])
-
+        print(i,j)
+        printArea(arr,i,j)
+        print(arr[(i, j)])
         frontier.pop((i, j))
     print("MAX:", max_val)
     return arr
     
+def printArea(arr,i,j):
+    if i-10 < 0:
+        starti = 0
+    else:
+        starti = i-10
+    if j-10 < 0:
+        startj = 0
+    else:
+        startj = j-10
+    if i+10 > ARR_SIZE-1:
+        endi = ARR_SIZE-1
+    else:
+        endi = i+10
+    if j+10 > ARR_SIZE-1:
+        endj = ARR_SIZE-1
+    else:
+        endj = j+10
+    for x in range(starti,endi):
+        for y in range(startj,endj):
+            print(arr[x,y], end = "  ")
+        print("")
 
 
 #Currently wont work
