@@ -6,7 +6,7 @@ import scipy
 import skimage
 import copy
 import os
-ARR_SIZE = 20
+ARR_SIZE = 10
 FINAL_SIZE = ARR_SIZE*2**5 # 100*2^5 = 3200
 
 class GridMap:
@@ -23,18 +23,33 @@ class GridMap:
         del self.connections[(x,y)] 
     def point_to_string(self, x,y):
         str(self.connections[(x,y)]) + ", " + str(x) + "," + str(y)
-    def num_of_connections(self, x,y):
+    def num_of_connections(self,x,y): # 0 or 1
         return len(self.connections[(x,y)])
+    def num_of_connections_to_self(self, x,y):
+        amount = 0
+        if (self.check_point(x-1,y)):
+            if self.connections[x-1,y] == (x,y):
+                amount += 1
+        if (self.check_point(x-1,y)):
+            if self.connections[x-1,y] == (x,y):
+                amount += 1
+        if (self.check_point(x,y-1)):
+            if self.connections[x,y-1] == (x,y):
+                amount += 1
+        if (self.check_point(x,y+1)):
+            if self.connections[x,y+1] == (x,y):
+                amount += 1
+        return amount
     def move_point(self, x,y,x2,y2):
         self.connections[(x2,y2)] = self.connections[(x,y)]
         del self.connections[(x,y)]
     def add_connection(self, x1,y1,x2,y2):
-        if (x2,y2) not in self.connections[(x1,y1)] and self.check_point(x2,y2) and (x1,y1) not in self.connections[(x2,y2)]:
-            self.connections[(x1,y1)].append((x2,y2))
-            self.connections[(x2,y2)].append((x1,y1))
+        if (x2,y2) not in self.connections[(x1,y1)] and self.check_point(x2,y2):
+            self.connections[(x1,y1)].append((x2,y2)) # one way connection
+
 
 grid_map = GridMap()
-final_map = np.zeros((10240,10240), dtype=float)
+final_map = np.zeros((5120,5120), dtype=float)
 edgefound = False
 pointdict = {}
 
@@ -47,20 +62,18 @@ def main ():
     # numpy 2d array
     setFirstPixel()
     while(True):
-        location = placeNewPixel(size)
+        location = placeNewPixelBorders(size)
+        #location = placeNewPixel(size)
 
-        
         movePixel(location,size)
+
         if(density(size) >= 0.3):#density reached  FYI: split in two to see which happens
             print("Density reached")
             upscaleandAddToFinal(getHeightMap(size),exponent)
-            if(exponent == 1):
-                printMountain(size)
             exponent += 1
             size = int(math.pow(2,exponent))
+            
 
-
-            #jitterMap(size)
             upscaledMountain(size)
   
         if(edgefound): #edge reached 
@@ -73,18 +86,16 @@ def main ():
 
             size = int(math.pow(2,exponent))
 
-            #jitterMap(size)
             upscaledMountain(size)
+            printMountain(size)
 
 
         if(exponent==6):
             print("Heightmap")
-            print(size)
-            arr = getHeightMap(size)
-            upscaleandAddToFinal(arr,exponent)
+            upscaleandAddToFinal(getHeightMap(size),exponent)
             break
  
-            
+    print("To Image")
     toImage()
 
 def upscaleandAddToFinal(arr,exponent):
@@ -139,6 +150,8 @@ def upscaleblur(arr,expo):
 
         #Radial blur
         new_arr = scipy.ndimage.gaussian_filter(new_arr, sigma=1)
+        new_arr = scipy.ndimage.gaussian_filter(new_arr, sigma=1)
+        new_arr = scipy.ndimage.gaussian_filter(new_arr, sigma=1)
         expo += 1
         
         arr = new_arr
@@ -149,7 +162,8 @@ def upscaleblur(arr,expo):
 
     
 
-def placeNewPixelBorders(size):         
+def placeNewPixelBorders(size):
+    greatest=(ARR_SIZE*size)-2
     #OLD way, only edges
     while (True):
         place = np.random.randint(0, 4) #0 = up, 1 = down, 2 = left, 3 = right
@@ -194,6 +208,7 @@ def checkPixelEdges(location):
         return False
     return True
 
+
   
 #Location = (x,y) tuple
 def movePixel(location,size):
@@ -202,34 +217,44 @@ def movePixel(location,size):
     greatest = (ARR_SIZE-1)*size
     while True:
         move = randMove()
-        if checkPixelEdges((x,y)): #Found a neighbour
-            if(x == 1 or x == greatest or y == 1 or y == greatest): #Check if on the edge
-                pointdict[(x,y)] = 1
-                if(len(pointdict) == 16): #a few edges found
-                    edgefound = True
-            break
-        if move == 0:
+        if move == 0: #Left
             if x>2:
+                if(grid_map.check_point(x-1,y)):
+                    grid_map.add_connection(x,y,x-1,y)
+                    break
                 grid_map.delete_point_before_connection(x,y)
                 x=x-1
                 grid_map.add_point(x,y)
-        elif move == 1:
+        elif move == 1: #Right
             if x<greatest:
+                if grid_map.check_point(x+1,y):
+                    grid_map.add_connection(x,y,x+1,y)
+                    break
                 grid_map.delete_point_before_connection(x,y)
                 x=x+1
                 grid_map.add_point(x,y)
-        elif move == 2:
+        elif move == 2: #Up
             if y>2:
+                if grid_map.check_point(x,y-1):
+                    grid_map.add_connection(x,y,x,y-1)
+                    break
                 grid_map.delete_point_before_connection(x,y)
                 y=y-1
                 grid_map.add_point(x,y)
         elif move == 3:
-            if y<greatest:
+            if y<greatest: #Down
+                if grid_map.check_point(x,y+1):
+                    grid_map.add_connection(x,y,x,y+1)
+                    break
                 grid_map.delete_point_before_connection(x,y)
                 y=y+1
                 grid_map.add_point(x,y)
         else:
             print("Error in moving pixel") # WILL NEVER HAPPEN
+    if(x == 1 or x == greatest or y == 1 or y == greatest): #Check if on the edge
+        pointdict[(x,y)] = 1
+        if(len(pointdict) == 16): #a few edges found
+            edgefound = True
     return
 
 def randMove():
@@ -262,8 +287,10 @@ def printMountain(size):
             if not grid_map.check_point(i,j):
                 print("0", end = " ")
             else:
-                print(grid_map.num_of_connections(i,j), end = " ")
+                print("x", end = " ")
         print("")
+        
+
 
 def stepDown(size):
     return int(size*(2**(-1)))
@@ -296,7 +323,8 @@ def upscaledMountain(size):
     pointdict.clear()
     upscaled_map = GridMap()
     for x, y in grid_map.connections.keys():
-        upscaled_map.add_point(x*2, y*2)  # Add the scaled point itself
+        if not upscaled_map.check_point(x*2, y*2):
+            upscaled_map.add_point(x*2, y*2)  # Add the scaled point itself
         
         # Get the connections of the current point
         connections = grid_map.get_connections(x, y)
@@ -308,18 +336,22 @@ def upscaledMountain(size):
             # Scale the connected point
             if(x-1 == cx): #left
                 upscaled_map.add_point(x_sized-1, y_sized)
+                upscaled_map.add_point(x_sized-2, y_sized)
                 upscaled_map.add_connection(x_sized, y_sized, x_sized-1, y_sized)
                 upscaled_map.add_connection(x_sized-1, y_sized, x_sized-2, y_sized)
             elif(x+1 == cx): #right
                 upscaled_map.add_point(x_sized+1, y_sized)
+                upscaled_map.add_point(x_sized+2, y_sized)
                 upscaled_map.add_connection(x_sized, y_sized, x_sized+1, y_sized)
                 upscaled_map.add_connection(x_sized+1, y_sized, x_sized+2, y_sized)
             elif(y-1 == cy): #up
                 upscaled_map.add_point(x_sized, y_sized-1)
+                upscaled_map.add_point(x_sized, y_sized-2)
                 upscaled_map.add_connection(x_sized, y_sized, x_sized, y_sized-1)
                 upscaled_map.add_connection(x_sized, y_sized-1, x_sized, y_sized-2)
             elif(y+1 == cy): #down
                 upscaled_map.add_point(x_sized, y_sized+1)
+                upscaled_map.add_point(x_sized, y_sized+2)
                 upscaled_map.add_connection(x_sized, y_sized, x_sized, y_sized+1)
                 upscaled_map.add_connection(x_sized, y_sized+1, x_sized, y_sized+2)
             else:
@@ -330,9 +362,7 @@ def upscaledMountain(size):
 
 def getHeightMap(size):
     frontier = {}
-    directions = {}
     arr = np.zeros((ARR_SIZE*size, ARR_SIZE*size), dtype=int)
-    
     for i in range(1, ARR_SIZE*size):
         for j in range(1, ARR_SIZE*size):
             if grid_map.check_point(i, j):  # Check if point is in the grid
@@ -341,27 +371,20 @@ def getHeightMap(size):
                     arr[(i, j)] = 1
 
     # Expand frontier until all points are filled 
-    #TODO: REDO TO ALLOW FOR EDGE CONNECTIONS TO CHECK HEIGEST
+    #TODO: REDO TO ALLOW FOR EDGE CONNECTIONS TO CHECK HEIGHEST
     max_val = 0
-    print(frontier.items())
+
     while frontier:
         item, _ = min(frontier.items(), key=lambda x: x[1])
         i, j = item
-
         for x, y in grid_map.get_connections(i, j):
             if 0 <= x < ARR_SIZE*size and 0 <= y < ARR_SIZE*size:
-                if arr[(x,y)] == 1:
-                    continue
-                if grid_map.num_of_connections(x, y) == 2:
-                    directions[(x,y)] = (i,j)
-                if  arr[(x, y)] < frontier[(i, j)] + 1 and directions.get((x,y)) != (i,j):
-                    directions[(x,y)] = (i,j)
+                if(arr[(x,y)] < frontier[(i,j)]+1):
                     frontier[(x, y)] = frontier[(i, j)] + 1
                     arr[(x, y)] = frontier[(i, j)] + 1
-                    max_val = max(max_val, arr[(x, y)])
-        print(i,j)
-        printArea(arr,i,j)
-        print(arr[(i, j)])
+                
+                max_val = max(max_val, arr[(x, y)])
+
         frontier.pop((i, j))
     print("MAX:", max_val)
     return arr
@@ -408,21 +431,13 @@ def printNeighbours(location):
     x,y = location
     string = "Neighbours of: " + str(location)
     if grid_map.check_point(x-1,y):
-        string += " neighbour found left"
-    else:
-        string += " no neighbour up"
+        string += " left "
     if grid_map.check_point(x+1,y):
-        string += " neighbour found right"
-    else:
-        string += " no neighbour down"
+        string += " right "
     if grid_map.check_point(x,y-1):
-        string += " neighbour found up"
-    else:
-        string += " no neighbour left"
+        string += " up "
     if grid_map.check_point(x,y+1):
-        string += " neighbour found down"
-    else:
-        string += " no neighbour right"
+        string += " down "
     print(string)
 
 
