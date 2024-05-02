@@ -6,6 +6,7 @@ import scipy
 import skimage
 import copy
 import os
+import PIL
 ARR_SIZE = 10
 FINAL_SIZE = ARR_SIZE*2**5 # 100*2^5 = 3200
 
@@ -49,7 +50,8 @@ class GridMap:
 
 
 grid_map = GridMap()
-final_map = np.zeros((5120,5120), dtype=float)
+final_size = 5120
+final_map = np.zeros((final_size,final_size), dtype=float)
 edgefound = False
 pointdict = {}
 
@@ -62,41 +64,41 @@ def main ():
     # numpy 2d array
     setFirstPixel()
     while(True):
-        location = placeNewPixelBorders(size)
-        #location = placeNewPixel(size)
+        #location = placeNewPixelBorders(size)
+        location = placeNewPixel(size)
 
         movePixel(location,size)
 
-        if(density(size) >= 0.3):#density reached  FYI: split in two to see which happens
-            print("Density reached")
-            upscaleandAddToFinal(getHeightMap(size),exponent)
-            exponent += 1
-            size = int(math.pow(2,exponent))
+        if(density(size) >= 0.4 or edgefound):#density reached  FYI: split in two to see which happens
+            if(density(size) >= 0.4):
+                print("Density reached")
+            else:
+                print("Edge found")
+                edgefound = False
             
-
-            upscaledMountain(size)
-  
-        if(edgefound): #edge reached 
-            print("Edge found")
-            if(exponent == 1):
-                printMountain(size)
             upscaleandAddToFinal(getHeightMap(size),exponent)
-            edgefound = False
             exponent += 1
-
             size = int(math.pow(2,exponent))
-
             upscaledMountain(size)
-            printMountain(size)
 
 
-        if(exponent==6):
-            print("Heightmap")
+        if(exponent==4):
+            print("final map")
             upscaleandAddToFinal(getHeightMap(size),exponent)
             break
  
     print("To Image")
+    normalizeHeight()
     toImage()
+
+def normalizeHeight():
+    global final_map
+    max_val = np.amax(final_map)
+    min_val = np.amin(final_map)
+    for i in range(final_map.shape[0]):
+        for j in range(final_map.shape[1]):
+            final_map[i,j] = 1-(1/(1+final_map[i,j]))
+    return
 
 def upscaleandAddToFinal(arr,exponent):
     global final_map
@@ -114,8 +116,8 @@ def arrJitter(arr):
     for i in range(arr_shape[0]):
         for j in range(arr_shape[1]):
             #The squeeze stops the random float from being a 1d array
-            rand = np.squeeze(np.random.rand(1)*2-1) #-1 to 1
-            rand2 = np.squeeze(np.random.rand(1)*2-1)#-1 to 1
+            rand = np.squeeze(np.random.rand(1)*2-1) # -2 to 2
+            rand2 = np.squeeze(np.random.rand(1)*2-1) # -2 to 2
             value=arr[i,j] 
             #split over 9 pixels
             if(rand > 0.0):
@@ -147,7 +149,7 @@ def upscaleblur(arr,expo):
         csize = 2**(expo-1)
         #Linear interpolation
         new_arr = skimage.transform.resize(arr,(ARR_SIZE*csize,ARR_SIZE*csize), order=1)
-
+        #new_arr = arrJitter(new_arr)
         #Radial blur
         new_arr = scipy.ndimage.gaussian_filter(new_arr, sigma=1)
         new_arr = scipy.ndimage.gaussian_filter(new_arr, sigma=1)
@@ -155,7 +157,7 @@ def upscaleblur(arr,expo):
         expo += 1
         
         arr = new_arr
-        if expo >= 11: #Temp, but not going to be
+        if expo >=11: #Temp, but not going to be
             break
 
     return arr
@@ -323,35 +325,41 @@ def upscaledMountain(size):
     pointdict.clear()
     upscaled_map = GridMap()
     for x, y in grid_map.connections.keys():
-        if not upscaled_map.check_point(x*2, y*2):
+        x_sized = x*2
+        y_sized = y*2
+        if not upscaled_map.check_point(x_sized, y_sized):
             upscaled_map.add_point(x*2, y*2)  # Add the scaled point itself
         
         # Get the connections of the current point
         connections = grid_map.get_connections(x, y)
-        x_sized = x*2
-        y_sized = y*2
+
         
         # Scale each connected point and add connections in the upscaled map
         for cx, cy in connections:
             # Scale the connected point
             if(x-1 == cx): #left
                 upscaled_map.add_point(x_sized-1, y_sized)
-                upscaled_map.add_point(x_sized-2, y_sized)
+                if not upscaled_map.check_point(x_sized-2, y_sized):
+                    upscaled_map.add_point(x_sized-2, y_sized)
                 upscaled_map.add_connection(x_sized, y_sized, x_sized-1, y_sized)
                 upscaled_map.add_connection(x_sized-1, y_sized, x_sized-2, y_sized)
+
             elif(x+1 == cx): #right
                 upscaled_map.add_point(x_sized+1, y_sized)
-                upscaled_map.add_point(x_sized+2, y_sized)
+                if not upscaled_map.check_point(x_sized+2, y_sized):
+                    upscaled_map.add_point(x_sized+2, y_sized)
                 upscaled_map.add_connection(x_sized, y_sized, x_sized+1, y_sized)
                 upscaled_map.add_connection(x_sized+1, y_sized, x_sized+2, y_sized)
             elif(y-1 == cy): #up
                 upscaled_map.add_point(x_sized, y_sized-1)
-                upscaled_map.add_point(x_sized, y_sized-2)
+                if not upscaled_map.check_point(x_sized, y_sized-2):
+                    upscaled_map.add_point(x_sized, y_sized-2)
                 upscaled_map.add_connection(x_sized, y_sized, x_sized, y_sized-1)
                 upscaled_map.add_connection(x_sized, y_sized-1, x_sized, y_sized-2)
             elif(y+1 == cy): #down
                 upscaled_map.add_point(x_sized, y_sized+1)
-                upscaled_map.add_point(x_sized, y_sized+2)
+                if not upscaled_map.check_point(x_sized, y_sized+2):
+                    upscaled_map.add_point(x_sized, y_sized+2)
                 upscaled_map.add_connection(x_sized, y_sized, x_sized, y_sized+1)
                 upscaled_map.add_connection(x_sized, y_sized+1, x_sized, y_sized+2)
             else:
@@ -417,13 +425,16 @@ def toImage():
 
     global final_map
     #plot array
+    plt.axis('off')  
     plt.imshow(final_map, cmap='gray')
+
+
     try:
         os.remove("mountain.png")
     except FileNotFoundError:
         print("No file to remove")
         
-    plt.savefig("mountain.png")
+    plt.savefig("mountain.png", bbox_inches='tight', pad_inches=0)
     plt.show()
 
 
