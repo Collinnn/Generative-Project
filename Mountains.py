@@ -75,7 +75,6 @@ def main ():
             else:
                 print("Edge found")
                 edgefound = False
-            
             upscaleandAddToFinal(getHeightMap(size),exponent)
             exponent += 1
             size = int(math.pow(2,exponent))
@@ -93,15 +92,16 @@ def main ():
 
 def normalizeHeight():
     global final_map
-    max_val = np.amax(final_map)
-    min_val = np.amin(final_map)
     for i in range(final_map.shape[0]):
         for j in range(final_map.shape[1]):
             final_map[i,j] = 1-(1/(1+final_map[i,j]))
     return
 
+def circleHeight():
+
 def upscaleandAddToFinal(arr,exponent):
     global final_map
+    arr = arrJitter(arr)
     arr = arrJitter(arr)
     expo = exponent
     expo += 1
