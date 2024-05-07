@@ -88,6 +88,7 @@ def main ():
  
     print("To Image")
     normalizeHeight()
+    circleHeight()
     toImage()
 
 def normalizeHeight():
@@ -97,7 +98,29 @@ def normalizeHeight():
             final_map[i,j] = 1-(1/(1+final_map[i,j]))
     return
 
+def normalizedLength(length,min_cutt_off,max_length):
+    return (length-min_cutt_off)/(max_length-min_cutt_off)
+
 def circleHeight():
+    length = final_map.shape[0]
+    center = length//2
+    hypotenous = math.sqrt((center**2)+(center**2))
+    max_length = (hypotenous/2) - (hypotenous/3)
+    for i in range(length):
+        for j in range(length):
+            distance = math.sqrt((center-i)**2+(center-j)**2)
+            if(distance <= hypotenous/3):
+                final_map[i,j] = 0	
+            elif(distance <= hypotenous/2):
+                normal = normalizedLength(distance,hypotenous/3,hypotenous/2)
+                print(normal)
+                final_map[i,j] = final_map[i,j]*normal
+
+            if(final_map[i,j]<0):
+                final_map[i,j] = 0
+            
+    
+    return
 
 def upscaleandAddToFinal(arr,exponent):
     global final_map
